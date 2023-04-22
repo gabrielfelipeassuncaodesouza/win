@@ -14,9 +14,7 @@ import textwrap
 
 path = os.path.join('/data', 'data', 'com.termux', 'files', 'home', 'win')
 os.chdir(path)
-db = open('mode.txt', 'r')
-dbkey = db.read()
-clients = shelve.open(dbkey)
+clients = shelve.open('test')
 db.close()
 colors = {
     "RED": '\033[31m',
