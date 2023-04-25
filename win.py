@@ -1,4 +1,23 @@
 #! /usr/bin/python3
+#
+# Win.py - Window streaming manager
+#
+# Site      : https://github.com/gabrielfelipeassuncaodesouza/
+# Author    : Gabriel Felipe <gabrielfelipeassuncaodesouza@gmail.com
+#
+#
+# ---------------
+# This program receive as a paramter arguments and a key value
+# each argument does something on the final result
+#
+# Exemplo:
+#   $ win.py -l     <Lista todos os clientes>
+#   $ win.py -c <Nome> -n <Novo nome>
+#   $ [!] Name of client updated.
+#
+#
+#   Licenca: MIT
+#
 
 # Imports
 
