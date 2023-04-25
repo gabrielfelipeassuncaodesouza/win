@@ -12,8 +12,12 @@
 #
 # Exemplo:
 #   $ win.py -l     <Lista todos os clientes>
-#   $ 
-
+#   $ win.py -c <Nome> -n <Novo nome>
+#   $ [!] Name of client updated.
+#
+#
+#   Licenca: MIT
+#
 
 # Imports
 
