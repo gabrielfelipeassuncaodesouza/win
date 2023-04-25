@@ -117,7 +117,11 @@ class Client:
         """
         Updates the date of the client to current date
         """
-        self._date = datetime.today()
+        newDate = str(datetime.now().strftime("%d/%m/%y"))
+        dateFormated = datetime.strptime(newDate, "%d/%m/%y")
+        self._date = dateFormated
+        clients[self._name] = self
+        print(f'[*] Date of {self._name} updated')
 
 # Functions of the program
 
@@ -252,7 +256,7 @@ def handle(args):
     if args.change: change(args)
     if args.list: list_clients()
     if args.backspace: del_client(args.backspace)
-    if args.update: print('I will fix it')
+    if args.update: clients[args.update].update()
     if args.test: enableTestMode()
     if args.zshell: switchNormalMode()
 if __name__ == '__main__':
