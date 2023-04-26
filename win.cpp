@@ -26,6 +26,7 @@ enum modes {
 typedef struct Config {
 	int addMode;
 	int sMode;
+	int dMode;
 	bool isProcessing;
 	bool finishedEdit;
 } Config;
@@ -137,6 +138,14 @@ void addService(std::string service) {
 
 }
 
+bool dataValida(std::string date) {
+	return true;
+}
+
+void addDate(std::string date) {
+	return;
+}
+
 void printClients() {
 	if(isEmpty()) return;
 
@@ -177,9 +186,12 @@ bool isValid(std::string arg) {
 	std::cout << "Comand analized: " << arg << std::endl;
 	std::cout << "Size: " << arg.size() << std::endl;
 
-	if((arg != "add" && arg != "service" &&
-	arg != "list") && (application.sMode == OFF &&
-		application.addMode == OFF)) {
+	if((arg != "add" && 
+	arg != "service" &&
+	arg != "exit" &&
+	arg != "list") && 
+	(application.sMode == OFF &&
+	application.addMode == OFF)) {
 		std::cout << "[!] Invalid command\n";
 		application.isProcessing = false;
 		return false;
@@ -202,12 +214,14 @@ void handle(std::string arg) {
 
 	if(!isValid(arg)) return;
 
-	if(application.addMode == ON) {
+	if(application.addMode == ON) 
 		addClient(arg);
-	}
 
 	if(application.sMode == ON)
 		addService(arg);
+
+	if(application.dMode == ON)
+		addDate(arg);
 
 	//std::cout << arg << std::endl;
 	if(arg == "add")
@@ -218,6 +232,9 @@ void handle(std::string arg) {
 
 	if(arg == "service")
 		application.sMode = ON;
+
+	if(arg == "date")
+		application.dMode = ON;
 }
 
 /* This functions below do the initialization of the program
@@ -234,6 +251,7 @@ void init() {
 	list.tail = NULL;
 	application.addMode = OFF;
 	application.sMode = OFF;
+	application.dMode = OFF;
 	application.isProcessing = false;
 	application.finishedEdit = true;
 }
