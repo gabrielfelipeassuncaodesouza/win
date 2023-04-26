@@ -11,6 +11,9 @@
 
 #include <iostream>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 bool isEmpty();
 
@@ -26,6 +29,7 @@ enum modes {
 typedef struct Config {
 	int addMode;
 	int sMode;
+	int dMode;
 	bool isProcessing;
 	bool finishedEdit;
 } Config;
@@ -39,35 +43,36 @@ Config application;
 
 class Client {
 	public:
-		std::string getName();
-		std::string getService();
-		void setName(std::string name);
-		void setService(std::string service);
+		char* getName();
+		char* getService();
+		void setName(char* name);
+		void setService(char* service);
 		bool isFull();
 	private:
-		std::string name;
-		std::string service;
-		std::string dateOfPayment;
+		char* name;
+		char* service;
+		char* dateOfPayment;
 };
 
-std::string Client::getName() {
+char* Client::getName() {
 	return this->name;
 }
 	
-std::string Client::getService() {
+char* Client::getService() {
 	return this->service;
 }
 
-void Client::setName(std::string name) {
+void Client::setName(char* name) {
+	//need realloc the memory
 	this->name = name;
 }
 
-void Client::setService(std::string service) {
+void Client::setService(char* service) {
 	this->service = service;
 }
 
 bool Client::isFull() {
-	return this->service.size() != 0 && this->name.size() != 0;
+	return this->service != 0 && this->name != 0;
 }
 
 typedef struct ClientNode {
@@ -82,7 +87,7 @@ typedef struct ClientList {
 
 ClientList list;
 
-void addClient(std::string name) {
+void addClient(char* name) {
 	if(!application.finishedEdit) {
 		std::cout << "[!] First you need to complete this client" << std::endl;
 		application.addMode = OFF;
@@ -120,11 +125,11 @@ void addClient(std::string name) {
 	application.finishedEdit = true;
 }
 
-void addService(std::string service) {
+void addService(char* service) {
 	if(isEmpty()) return;
 
 	list.tail->client.setService(service);
-	std::string name = list.tail->client.getName();
+	char* name = list.tail->client.getName();
 	std::cout << "[*] Service of " << name << "updated to " << service << std::endl;
 
 	application.sMode = OFF;
@@ -136,6 +141,14 @@ void addService(std::string service) {
 	application.finishedEdit = true;
 
 }
+
+//bool dataValida(std::string date) {
+//	return false;
+//}
+
+//void addDate(std::string date) {
+//	if(!dataValida(date)) return;
+//}
 
 void printClients() {
 	if(isEmpty()) return;
@@ -173,13 +186,28 @@ bool isEmpty() {
 	return false;
 }
 
-bool isValid(std::string arg) {
-	std::cout << "Comand analized: " << arg << std::endl;
-	std::cout << "Size: " << arg.size() << std::endl;
+bool equals(char *s1, char* s2) {
+	return strcmp(s1, s2) == 0;
+}
 
-	if((arg != "add" && arg != "service" &&
-	arg != "list") && (application.sMode == OFF &&
-		application.addMode == OFF)) {
+bool isValid(char* arg) {
+
+	char *add = strcpy(add, "add");
+	char *list = strcpy(list, "list");
+	char *service = strcpy(service, "service");
+	char *date = strcpy(date, "date");
+	char *exit = strcpy(exit, "exit");
+
+	std::cout << "Comand analized: " << arg << std::endl;
+
+	if((!equals(arg, add) && 
+	!equals(arg, list) &&
+	!equals(arg, service) && 
+	!equals(arg, exit) && 
+	!equals(arg, date)) && 
+	(application.sMode == OFF && 
+	application.addMode == OFF)) {
+
 		std::cout << "[!] Invalid command\n";
 		application.isProcessing = false;
 		return false;
@@ -191,33 +219,43 @@ bool isValid(std::string arg) {
  * program and switch to the different ways of the application
  */
 
-void readCommand(std::string *arg) {
+void readCommand(char *arg) {
 	if(!application.isProcessing)
 		std::cout << "\033[32mwin@user#> \033[m";
-	std::cin >> *arg;
+	scanf("%s", arg);
 }
 
-void handle(std::string arg) {
+void handle(char* arg) {
 	application.isProcessing = true;
 
 	if(!isValid(arg)) return;
 
-	if(application.addMode == ON) {
+	if(application.addMode == ON)
 		addClient(arg);
-	}
 
 	if(application.sMode == ON)
 		addService(arg);
 
-	//std::cout << arg << std::endl;
-	if(arg == "add")
+	//if(application.dMode == ON)
+	//	addDate(arg);
+
+	char *add = strcpy(add, "add");
+	char *list = strcpy(list, "list");
+	char *service = strcpy(service, "service");
+	char *date = strcpy(date, "date");
+	char *exit = strcpy(exit, "exit");
+
+	if(equals(arg, add))
 		application.addMode = ON;
 
-	if(arg == "list") 
+	if(equals(arg, list)) 
 		printClients();
 
-	if(arg == "service")
+	if(equals(arg, service))
 		application.sMode = ON;
+
+	//if(equals(arg, date))
+	//	application.dMode = ON;
 }
 
 /* This functions below do the initialization of the program
@@ -234,6 +272,7 @@ void init() {
 	list.tail = NULL;
 	application.addMode = OFF;
 	application.sMode = OFF;
+	application.dMode = OFF;
 	application.isProcessing = false;
 	application.finishedEdit = true;
 }
@@ -252,10 +291,11 @@ int main(int argc, char** argv) {
 	//std::cout << "argc: " << argc << "argv: "<< argv[1];
 	init();
 	printWelcomeMessage();
-	std::string arg;
+	char* arg;
+	char* flag = strcpy(flag, "exit");
 	do {
-		readCommand(&arg);
+		readCommand(arg);
 		handle(arg);
-	} while(arg != "exit");
+	} while(!equals(arg, flag));
 	return 0;
 }
