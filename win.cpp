@@ -109,7 +109,6 @@ void addClient(std::string name) {
 		list.tail->next = NULL;
 	}
 
-	application.isProcessing = true;
 	std::cout << "[*] Client " << name << " added!" << std::endl;
 	application.addMode = OFF;
 	application.isProcessing = false;
@@ -130,12 +129,13 @@ void addService(std::string service) {
 
 	application.sMode = OFF;
 	application.isProcessing = false;
+
 	if(!list.tail->client.isFull()) {
 		application.finishedEdit = false;
 		return;
 	}
-	application.finishedEdit = true;
 
+	application.finishedEdit = true;
 }
 
 bool dataValida(std::string date) {
