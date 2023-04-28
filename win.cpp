@@ -163,6 +163,7 @@ void addObject(ClientList* list, Client cliente) {
 
 	ClientNode* novo = new ClientNode();
 	novo->client = cliente;
+	application.client = novo;
 	counter++;
 
 	if(list->head == NULL) {
@@ -204,15 +205,18 @@ void addService(std::string service) {
 	//verifications need to be written on the method
 	if(isEmpty()) return;
 
-	list.tail->client.setService(service);
-	std::string name = list.tail->client.getName();
+	ClientNode* aux = application.client;
+	aux->client.setService(service);
+	application.client = aux;
+
+	std::string name = aux->client.getName();
 	application.isProcessing = true;
 	std::cout << "[*] Service of " << name << " updated to " << service << std::endl;
 
 	application.sMode = OFF;
 	application.isProcessing = false;
 
-	if(!list.tail->client.isFull()) {
+	if(!aux->client.isFull()) {
 		application.finishedEdit = false;
 		return;
 	}
@@ -237,14 +241,16 @@ void addDate(std::string date) {
 	}
 
 	application.isProcessing = true;
-
-	list.tail->client.setDate(date);
+	ClientNode* aux = application.client;
+	aux->client.setDate(date);
+	application.client = aux;
 	std::cout << "Date set to " << date << std::endl; 
 
 	application.dMode = OFF;
 	application.isProcessing = false;
 
-	if(!list.tail->client.isFull()) {
+	//TODO: this responsibility can be taken to the add Method
+	if(!aux->client.isFull()) {
 		application.finishedEdit = false;
 		return;
 	}
@@ -310,6 +316,7 @@ bool isEmpty() {
 		application.dMode = OFF;
 		application.addMode = OFF;
 		application.sMode = OFF;
+		application.swMode = OFF;
 		application.isProcessing = false;
 		return true;
 	}
