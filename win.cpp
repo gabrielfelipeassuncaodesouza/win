@@ -16,6 +16,38 @@
 
 bool isEmpty();
 
+/* Here it's defined the class Client who contains all
+ * informations about the client. So, all operations with
+ * dates and more else will be done here
+ */
+
+int counter = 0;
+
+class Client {
+	public:
+		std::string getName();
+		std::string getService();
+		std::string getDate();
+		int getIndex();
+		void setName(std::string name);
+		void setService(std::string service);
+		void setDate(std::string date);
+		bool isFull();
+	private:
+		std::string name;
+		std::string service;
+		struct tm* dateOfPayment;
+		int index;
+
+	public:
+		Client() {
+			time_t now = time(0);
+			struct tm* data = localtime(&now);
+			this->dateOfPayment = data;
+			this->index = counter;
+		}
+};
+
 /*
  * Here it's a configuration of the system
  */
@@ -25,10 +57,23 @@ enum modes {
 	ON
 };
 
+typedef struct ClientNode {
+	Client client;
+	ClientNode* next;
+} ClientNode;
+
+typedef struct ClientList {
+	ClientNode* head;
+	ClientNode* tail;
+} ClientList;
+
+ClientList list;
+
 typedef struct Config {
 	int addMode;
 	int sMode;
 	int dMode;
+	int swMode;
 	bool saved;
 	bool isProcessing;
 	bool finishedEdit;
@@ -37,38 +82,17 @@ typedef struct Config {
 
 Config application;
 
-/* Here it's defined the class Client who contains all
- * informations about the client. So, all operations with
- * dates and more else will be done here
+/*
+ * Here is the implementation of the methods of class Client
+ *
  */
 
-class Client {
-	public:
-		std::string getName();
-		std::string getService();
-		std::string getDate();
-		void setName(std::string name);
-		void setService(std::string service);
-		void setDate(std::string date);
-		bool isFull();
-	private:
-		std::string name;
-		std::string service;
-		struct tm* dateOfPayment;
+std::string Client::getName() { return this->name; }
 
-	public:
-		Client() {
-			time_t now = time(0);
-			struct tm* data = localtime(&now);
-			this->dateOfPayment = data;
-		}
-};
-
-std::string Client::getName() {
-	return this->name;
-}
-	
 std::string Client::getService() {
+	if(this->service == "")
+		return "None";
+
 	return this->service;
 }
 
@@ -80,6 +104,8 @@ std::string Client::getDate() {
 	int mon = this->dateOfPayment->tm_mon;
 	return std::to_string(this->dateOfPayment->tm_mday) + "/" + std::to_string(this->dateOfPayment->tm_mon);
 }
+
+int Client::getIndex() { return this->index; }
 
 void Client::setName(std::string name) {
 	this->name = name;
@@ -116,22 +142,28 @@ bool Client::isFull() {
 	return this->service.size() != 0 && this->name.size() != 0;
 }
 
-typedef struct ClientNode {
-	Client client;
-	ClientNode* next;
-} ClientNode;
+ClientNode* getClientByIndex(int index) {
+	if(list.head == NULL)
+		return NULL;
 
-typedef struct ClientList {
-	ClientNode* head;
-	ClientNode* tail;
-} ClientList;
+	ClientNode* aux = list.head;
+	ClientNode* retorno = NULL;
+	while(aux != NULL) {
+		if(aux->client.getIndex() == index) {
+			retorno = aux;
+			break;
+		}
 
-ClientList list;
+		aux = aux->next;
+	}
+	return retorno;
+}
 
 void addObject(ClientList* list, Client cliente) {
 
 	ClientNode* novo = new ClientNode();
 	novo->client = cliente;
+	counter++;
 
 	if(list->head == NULL) {
 		novo->next = NULL;
@@ -219,6 +251,30 @@ void addDate(std::string date) {
 	application.finishedEdit = true;
 }
 
+void switchClient(std::string arg) {
+	int i;
+	try {
+		i = stoi(arg); 
+	}
+	catch(std::invalid_argument e) {
+		std::cout << "[!] Index error" << std::endl;
+		return;
+	}
+	
+	if(getClientByIndex(i) == NULL) {
+		std::cout << "[!] Error" << std::endl;
+		application.swMode = OFF;
+		application.isProcessing = false;
+		return;
+	}
+
+	application.isProcessing = true;
+	application.client = getClientByIndex(i);
+	std::cout << "[*] Client top now is " << application.client->client.getName();
+	application.swMode = OFF;
+	application.isProcessing = false;
+}
+
 void printClients() {
 	if(isEmpty()) return;
 
@@ -227,6 +283,7 @@ void printClients() {
 		std::cout << "\nName: " << aux->client.getName() << std::endl;
 		std::cout << "Service: " << aux->client.getService() << std::endl;
 		std::cout << "Date: " << aux->client.getDate() << std::endl;
+		std::cout << "Index: " << aux->client.getIndex()<< std::endl;
 
 		aux = aux->next;
 	}
@@ -267,9 +324,11 @@ bool isValid(std::string arg) {
 	arg != "service" &&
 	arg != "exit" &&
 	arg != "date" &&
+	arg != "switch" &&
 	arg != "list") && 
 	(application.sMode == OFF &&
 	 application.dMode == OFF &&
+	 application.swMode == OFF &&
 	application.addMode == OFF)) {
 		std::cout << "[!] Invalid command\n";
 		application.isProcessing = false;
@@ -302,6 +361,9 @@ void handle(std::string arg) {
 	if(application.dMode == ON)
 		addDate(arg);
 
+	if(application.swMode == ON)
+		switchClient(arg);
+
 	//std::cout << arg << std::endl;
 	if(arg == "add")
 		application.addMode = ON;
@@ -314,6 +376,9 @@ void handle(std::string arg) {
 
 	if(arg == "date")
 		application.dMode = ON;
+	
+	if(arg == "switch")
+		application.swMode = ON;
 }
 
 /* This functions below do the initialization of the program
@@ -352,7 +417,7 @@ void loadContent() {
 	}
         fclose(data);
 	application.client = list.head;
-	std::cout << "Client of top: " << client->client.getName() << std::endl;
+	std::cout << "Client of top: " << application.client->client.getName() << std::endl;
 }
 
 void init() {
@@ -361,6 +426,7 @@ void init() {
 	application.addMode = OFF;
 	application.sMode = OFF;
 	application.dMode = OFF;
+	application.swMode = OFF;
 	application.isProcessing = false;
 	application.finishedEdit = true;
 	application.client = NULL;
@@ -415,7 +481,7 @@ void record() {
 
 	qtde = getListaLength();
 	std::cout << "Lista has " << qtde << std::endl;
-	fprintf(d, "%d", qtde);
+	fprintf(d, "%02d", qtde);
 
 	fseek(d, 0, SEEK_END); 
 	ClientNode* aux = list.head;
@@ -439,6 +505,12 @@ int main(int argc, char** argv) {
 		readCommand(&arg);
 		handle(arg);
 	} while(arg != "exit");
-	atexit(record);
+
+	char choice;
+	std::cout << "Save changes?[S/N]? ";
+	std::cin >> choice;
+	if(choice == 'S' || choice == 's')
+		record();
+
 	return 0;
 }
