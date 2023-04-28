@@ -11,6 +11,8 @@
 
 #include <iostream>
 #include <stdbool.h>
+#include <ctime>
+#include <regex>
 
 bool isEmpty();
 
@@ -27,8 +29,10 @@ typedef struct Config {
 	int addMode;
 	int sMode;
 	int dMode;
+	bool saved;
 	bool isProcessing;
 	bool finishedEdit;
+	ClientNode* client;
 } Config;
 
 Config application;
@@ -42,13 +46,22 @@ class Client {
 	public:
 		std::string getName();
 		std::string getService();
+		std::string getDate();
 		void setName(std::string name);
 		void setService(std::string service);
+		void setDate(std::string date);
 		bool isFull();
 	private:
 		std::string name;
 		std::string service;
-		std::string dateOfPayment;
+		struct tm* dateOfPayment;
+
+	public:
+		Client() {
+			time_t now = time(0);
+			struct tm* data = localtime(&now);
+			this->dateOfPayment = data;
+		}
 };
 
 std::string Client::getName() {
@@ -59,12 +72,44 @@ std::string Client::getService() {
 	return this->service;
 }
 
+std::string Client::getDate() {
+	if(this->dateOfPayment == NULL)
+		return "None";
+
+	int day = this->dateOfPayment->tm_mday;
+	int mon = this->dateOfPayment->tm_mon;
+	return std::to_string(this->dateOfPayment->tm_mday) + "/" + std::to_string(this->dateOfPayment->tm_mon);
+}
+
 void Client::setName(std::string name) {
 	this->name = name;
 }
 
 void Client::setService(std::string service) {
 	this->service = service;
+}
+
+void Client::setDate(std::string date) {
+	struct tm* data = new tm();
+	std::string deli = "/";
+	auto start = 0U;
+	auto end = date.find(deli);
+	for(int i=0; i<2; i++) {
+		if(i == 0)
+			data->tm_mday = stoi(date.substr(start, end - start));
+		else if(i == 1) {
+			data->tm_mon = stoi(date.substr(start, end - start));
+		}
+		start = end + deli.size();
+		end = date.find(deli, start);
+	}
+
+//	char* dateF;
+//	strcpy(dateF, date.c_str());
+//	char* formated = strtok(dateF, "/");
+//	std::cout << formated[0] << formated[1] << std::endl;
+//	data->
+	this->dateOfPayment = data;
 }
 
 bool Client::isFull() {
@@ -83,6 +128,23 @@ typedef struct ClientList {
 
 ClientList list;
 
+void addObject(ClientList* list, Client cliente) {
+
+	ClientNode* novo = new ClientNode();
+	novo->client = cliente;
+
+	if(list->head == NULL) {
+		novo->next = NULL;
+		list->head = novo;
+		list->tail = novo;
+		return;
+	}
+
+	list->tail->next = novo;
+	list->tail = novo;
+	list->tail->next = NULL;
+}
+
 void addClient(std::string name) {
 	if(!application.finishedEdit) {
 		std::cout << "[!] First you need to complete this client" << std::endl;
@@ -93,21 +155,7 @@ void addClient(std::string name) {
 
 	Client client;
 	client.setName(name);
-	ClientNode* novo = new ClientNode();
-	novo->client = client;
-
-	if(list.head == NULL) {
-		novo->next = NULL;
-		list.head = novo;
-		list.tail = novo;
-	}
-
-	else
-	{
-		list.tail->next = novo;
-		list.tail = novo;
-		list.tail->next = NULL;
-	}
+	addObject(&list, client);
 
 	std::cout << "[*] Client " << name << " added!" << std::endl;
 	application.addMode = OFF;
@@ -121,11 +169,13 @@ void addClient(std::string name) {
 }
 
 void addService(std::string service) {
+	//verifications need to be written on the method
 	if(isEmpty()) return;
 
 	list.tail->client.setService(service);
 	std::string name = list.tail->client.getName();
-	std::cout << "[*] Service of " << name << "updated to " << service << std::endl;
+	application.isProcessing = true;
+	std::cout << "[*] Service of " << name << " updated to " << service << std::endl;
 
 	application.sMode = OFF;
 	application.isProcessing = false;
@@ -139,11 +189,34 @@ void addService(std::string service) {
 }
 
 bool dataValida(std::string date) {
+	std::regex str_date("^(0[1-9]|[12][0-9]|3[01])[/](0[1-9]|1[012])$");
+	if(!regex_match(date, str_date)) {
+		std::cout << "\n[!] Date " << date << " wrong" << std::endl;
+		return false;
+	}
 	return true;
 }
 
 void addDate(std::string date) {
-	return;
+	if(isEmpty() || !dataValida(date)) {
+		application.dMode = OFF;
+		application.isProcessing = false;
+		return;
+	}
+
+	application.isProcessing = true;
+
+	list.tail->client.setDate(date);
+	std::cout << "Date set to " << date << std::endl; 
+
+	application.dMode = OFF;
+	application.isProcessing = false;
+
+	if(!list.tail->client.isFull()) {
+		application.finishedEdit = false;
+		return;
+	}
+	application.finishedEdit = true;
 }
 
 void printClients() {
@@ -153,6 +226,7 @@ void printClients() {
 	while(aux != NULL) {
 		std::cout << "\nName: " << aux->client.getName() << std::endl;
 		std::cout << "Service: " << aux->client.getService() << std::endl;
+		std::cout << "Date: " << aux->client.getDate() << std::endl;
 
 		aux = aux->next;
 	}
@@ -176,6 +250,9 @@ bool stringContains(std::string text, std::string word) {
 bool isEmpty() {
 	if(list.head == NULL) {
 		std::cout << "[!] No clients" << std::endl;
+		application.dMode = OFF;
+		application.addMode = OFF;
+		application.sMode = OFF;
 		application.isProcessing = false;
 		return true;
 	}
@@ -183,14 +260,16 @@ bool isEmpty() {
 }
 
 bool isValid(std::string arg) {
-	std::cout << "Comand analized: " << arg << std::endl;
-	std::cout << "Size: " << arg.size() << std::endl;
+//	std::cout << "Comand analized: " << arg << std::endl;
+//	std::cout << "Size: " << arg.size() << std::endl;
 
 	if((arg != "add" && 
 	arg != "service" &&
 	arg != "exit" &&
+	arg != "date" &&
 	arg != "list") && 
 	(application.sMode == OFF &&
+	 application.dMode == OFF &&
 	application.addMode == OFF)) {
 		std::cout << "[!] Invalid command\n";
 		application.isProcessing = false;
@@ -246,6 +325,36 @@ void handle(std::string arg) {
  *
  */
 
+void loadContent() {
+	FILE* data = fopen("data.txt", "r");
+	if(data == 0) {
+		std::cout << "[!] Error to load data" << std::endl;
+		exit(1);
+	}
+	int qtde;
+	fscanf(data, "%d", &qtde);
+	for(int i=0; i < qtde; i++) {
+		char nome[20];
+        	fscanf(data, "%s", nome);
+		char servico[20];
+		fscanf(data, "%s", servico);
+		char date[20];
+		fscanf(data, "%s", date);
+
+		//Creates a new Client
+		Client novo;
+		novo.setName(std::string(nome));
+		novo.setService(std::string(servico));
+		novo.setDate(std::string(date));
+		addObject(&list, novo);
+
+		std::cout << "N: " << nome << " S: " << servico << " D: " << date << std::endl;
+	}
+        fclose(data);
+	application.client = list.head;
+	std::cout << "Client of top: " << client->client.getName() << std::endl;
+}
+
 void init() {
 	list.head = NULL;
 	list.tail = NULL;
@@ -254,6 +363,8 @@ void init() {
 	application.dMode = OFF;
 	application.isProcessing = false;
 	application.finishedEdit = true;
+	application.client = NULL;
+	loadContent();
 }
 
 void printWelcomeMessage() {
@@ -266,14 +377,68 @@ void printWelcomeMessage() {
 	std::cout << "\nFor more information, type win --help:" << std::endl;
 }
 
+int getListaLength() {
+	ClientNode* aux = list.head;
+	int qtd = 0;
+	while(aux != NULL){
+		qtd++;
+		aux = aux->next;
+	}
+
+	return qtd;
+}
+
+void record() {
+	FILE* data = fopen("data.txt", "w");
+        if(data == 0) {
+        	printf("Error 404 not found");
+                exit(1);
+        }
+
+        int qtde;
+	fscanf(data, "%d", &qtde);
+	for(int i=0; i<qtde; i++) {
+		for(int j=0; j<3; j++)
+			fprintf(data, NULL);
+	}
+
+	fseek(data, 0, SEEK_SET);
+        fprintf(data, NULL);
+
+	fclose(data);
+
+	FILE* d = fopen("data.txt", "a");
+        if(d == 0) {
+        	printf("Error 404 not found");
+                exit(1);
+        }
+
+	qtde = getListaLength();
+	std::cout << "Lista has " << qtde << std::endl;
+	fprintf(d, "%d", qtde);
+
+	fseek(d, 0, SEEK_END); 
+	ClientNode* aux = list.head;
+	for(int i=0; i<qtde; i++) {
+
+		std::cout << "Recording client " << aux->client.getName() << std::endl;
+		fprintf(d, "\n%s\n", aux->client.getName().c_str());
+		fprintf(d, "%s\n", aux->client.getService().c_str());
+		fprintf(d, "%s\n", aux->client.getDate().c_str());
+		aux = aux->next;
+	}
+	fclose(d);
+}
+
 int main(int argc, char** argv) {
 	//std::cout << "argc: " << argc << "argv: "<< argv[1];
 	init();
-	printWelcomeMessage();
+	//printWelcomeMessage();
 	std::string arg;
 	do {
 		readCommand(&arg);
 		handle(arg);
 	} while(arg != "exit");
+	atexit(record);
 	return 0;
 }
