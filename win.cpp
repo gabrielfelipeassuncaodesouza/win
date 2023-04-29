@@ -15,20 +15,42 @@
 #include <regex>
 
 bool isEmpty();
+void initOptions();
 
 /* Here it's defined the class Client who contains all
  * informations about the client. So, all operations with
  * dates and more else will be done here
  */
 
-int counter = 0;
+
+/* Interface*/
+
+class CalcInterface {
+	public:
+		std::string calcStatus(struct tm* date) {
+			time_t now = time(0);
+			struct tm* currentData = localtime(&now);
+			currentData->tm_mon++;
+
+			int currentDay = currentData->tm_mday;
+			int currentMon = currentData->tm_mon;
+			int storagedDay = date->tm_mday;
+			int storagedMon = date->tm_mon;
+
+			if(currentMon - storagedMon > 0 &&
+			currentDay > storagedDay)
+				return "Prazo vencido";
+
+			return "No prazo";
+		}
+};
 
 class Client {
 	public:
 		std::string getName();
 		std::string getService();
 		std::string getDate();
-		int getIndex();
+		std::string getStatus();
 		void setName(std::string name);
 		void setService(std::string service);
 		void setDate(std::string date);
@@ -37,14 +59,15 @@ class Client {
 		std::string name;
 		std::string service;
 		struct tm* dateOfPayment;
-		int index;
+		CalcInterface* calc;
+		void updateDate();
 
 	public:
 		Client() {
 			time_t now = time(0);
 			struct tm* data = localtime(&now);
+			data->tm_mon++;
 			this->dateOfPayment = data;
-			this->index = counter;
 		}
 };
 
@@ -74,9 +97,9 @@ typedef struct Config {
 	int sMode;
 	int dMode;
 	int swMode;
+	int delMode;
 	bool saved;
 	bool isProcessing;
-	bool finishedEdit;
 	ClientNode* client;
 } Config;
 
@@ -105,7 +128,10 @@ std::string Client::getDate() {
 	return std::to_string(this->dateOfPayment->tm_mday) + "/" + std::to_string(this->dateOfPayment->tm_mon);
 }
 
-int Client::getIndex() { return this->index; }
+std::string Client::getStatus() {
+	struct tm* aux = this->dateOfPayment;
+	return this->calc->calcStatus(aux);
+}
 
 void Client::setName(std::string name) {
 	this->name = name;
@@ -138,18 +164,26 @@ void Client::setDate(std::string date) {
 	this->dateOfPayment = data;
 }
 
+void Client::updateDate() {
+	time_t now = time(0);
+	struct tm* newData = localtime(&now);
+	newData->tm_mon++;
+	this->dateOfPayment = newData;
+	std::cout << "[!] Date updated" << std::endl;
+}
+
 bool Client::isFull() {
 	return this->service.size() != 0 && this->name.size() != 0;
 }
 
-ClientNode* getClientByIndex(int index) {
+ClientNode* getClientByName(std::string client) {
 	if(list.head == NULL)
 		return NULL;
 
 	ClientNode* aux = list.head;
 	ClientNode* retorno = NULL;
 	while(aux != NULL) {
-		if(aux->client.getIndex() == index) {
+		if(aux->client.getName() == client) {
 			retorno = aux;
 			break;
 		}
@@ -160,11 +194,15 @@ ClientNode* getClientByIndex(int index) {
 }
 
 void addObject(ClientList* list, Client cliente) {
+	if(list->head != NULL && !list->tail->client.isFull()) {
+		std::cout << "[!] First complete this client" << std::endl;
+		initOptions();
+		return;
+	}
 
 	ClientNode* novo = new ClientNode();
 	novo->client = cliente;
 	application.client = novo;
-	counter++;
 
 	if(list->head == NULL) {
 		novo->next = NULL;
@@ -179,12 +217,6 @@ void addObject(ClientList* list, Client cliente) {
 }
 
 void addClient(std::string name) {
-	if(!application.finishedEdit) {
-		std::cout << "[!] First you need to complete this client" << std::endl;
-		application.addMode = OFF;
-		application.isProcessing = false;
-		return;
-	}
 
 	Client client;
 	client.setName(name);
@@ -193,12 +225,6 @@ void addClient(std::string name) {
 	std::cout << "[*] Client " << name << " added!" << std::endl;
 	application.addMode = OFF;
 	application.isProcessing = false;
-	if(!client.isFull()) {
-		application.finishedEdit = false;
-		return;
-	}
-
-	application.finishedEdit = true;
 }
 
 void addService(std::string service) {
@@ -215,13 +241,6 @@ void addService(std::string service) {
 
 	application.sMode = OFF;
 	application.isProcessing = false;
-
-	if(!aux->client.isFull()) {
-		application.finishedEdit = false;
-		return;
-	}
-
-	application.finishedEdit = true;
 }
 
 bool dataValida(std::string date) {
@@ -248,26 +267,11 @@ void addDate(std::string date) {
 
 	application.dMode = OFF;
 	application.isProcessing = false;
-
-	//TODO: this responsibility can be taken to the add Method
-	if(!aux->client.isFull()) {
-		application.finishedEdit = false;
-		return;
-	}
-	application.finishedEdit = true;
 }
 
-void switchClient(std::string arg) {
-	int i;
-	try {
-		i = stoi(arg); 
-	}
-	catch(std::invalid_argument e) {
-		std::cout << "[!] Index error" << std::endl;
-		return;
-	}
-	
-	if(getClientByIndex(i) == NULL) {
+void switchClient(std::string client) {
+
+	if(getClientByName(client) == NULL) {
 		std::cout << "[!] Error" << std::endl;
 		application.swMode = OFF;
 		application.isProcessing = false;
@@ -275,21 +279,71 @@ void switchClient(std::string arg) {
 	}
 
 	application.isProcessing = true;
-	application.client = getClientByIndex(i);
-	std::cout << "[*] Client top now is " << application.client->client.getName();
+	application.client = getClientByName(client);
+	std::cout << "[*] Client top now is " << application.client->client.getName() << std::endl;
 	application.swMode = OFF;
 	application.isProcessing = false;
 }
 
+void delClient(std::string client) {
+
+	if(isEmpty()) return;
+	
+	if(getClientByName(client) == NULL) {
+		std::cout << "[!] Client doesn't exist" << std::endl;
+		application.delMode = OFF;
+		application.isProcessing = false;
+		return;
+	}
+
+	application.isProcessing = true;
+	ClientNode* aux = list.head;
+	ClientNode* prev = NULL;
+
+	std::string name;
+	while(aux != NULL) {
+		if(aux->client.getName() == client) {
+			name = aux->client.getName();
+
+			//TODO: improve this verifications
+			if(aux == list.head) {
+				application.client = aux->next;
+				list.head = aux->next;
+				aux = list.head;
+			}
+			
+			else if(aux == list.tail) {
+				prev->next = NULL;
+				list.tail = prev;
+				aux = NULL;
+			}
+			else {
+				prev->next = aux->next;
+				aux = aux->next;
+			}
+			break;
+		}
+		prev = aux;
+		aux = aux->next;
+	}
+
+	std::cout << "[*] Client " << name << " Removed " << std::endl;
+	application.delMode = OFF;
+	application.isProcessing = false;
+
+}
+
 void printClients() {
 	if(isEmpty()) return;
+
+	std::cout << "Client top: " << application.client->client.getName() << std::endl;
 
 	ClientNode* aux = list.head;
 	while(aux != NULL) {
 		std::cout << "\nName: " << aux->client.getName() << std::endl;
 		std::cout << "Service: " << aux->client.getService() << std::endl;
 		std::cout << "Date: " << aux->client.getDate() << std::endl;
-		std::cout << "Index: " << aux->client.getIndex()<< std::endl;
+		std::cout << "Status: " << aux->client.getStatus()<< std::endl;
 
 		aux = aux->next;
 	}
@@ -323,19 +377,33 @@ bool isEmpty() {
 	return false;
 }
 
+bool isStringIn(std::string s, std::string options[], int size) {
+	for(int i = 0; i < size; i++) {
+		if(options[i] == s)
+			return true;
+	}
+	return false;
+}
+
 bool isValid(std::string arg) {
 //	std::cout << "Comand analized: " << arg << std::endl;
 //	std::cout << "Size: " << arg.size() << std::endl;
 
-	if((arg != "add" && 
-	arg != "service" &&
-	arg != "exit" &&
-	arg != "date" &&
-	arg != "switch" &&
-	arg != "list") && 
+	std::string options[7] = {
+		"add",
+		"service",
+		"exit",
+		"date",
+		"switch",
+		"delete",
+		"list"
+	};
+
+	if((!isStringIn(arg, options, 7)) && 
 	(application.sMode == OFF &&
 	 application.dMode == OFF &&
 	 application.swMode == OFF &&
+	 application.delMode == OFF &&
 	application.addMode == OFF)) {
 		std::cout << "[!] Invalid command\n";
 		application.isProcessing = false;
@@ -355,10 +423,6 @@ void readCommand(std::string *arg) {
 }
 
 void handle(std::string arg) {
-	application.isProcessing = true;
-
-	if(!isValid(arg)) return;
-
 	if(application.addMode == ON) 
 		addClient(arg);
 
@@ -371,7 +435,17 @@ void handle(std::string arg) {
 	if(application.swMode == ON)
 		switchClient(arg);
 
-	//std::cout << arg << std::endl;
+	if(application.delMode == ON)
+		delClient(arg);
+}
+
+void toggleModes(std::string arg) {
+	application.isProcessing = true;
+
+	if(!isValid(arg)) return;
+	
+	handle(arg);
+
 	if(arg == "add")
 		application.addMode = ON;
 
@@ -386,6 +460,9 @@ void handle(std::string arg) {
 	
 	if(arg == "switch")
 		application.swMode = ON;
+
+	if(arg == "delete")
+		application.delMode = ON;
 }
 
 /* This functions below do the initialization of the program
@@ -427,16 +504,20 @@ void loadContent() {
 	std::cout << "Client of top: " << application.client->client.getName() << std::endl;
 }
 
-void init() {
-	list.head = NULL;
-	list.tail = NULL;
+void initOptions() {
 	application.addMode = OFF;
 	application.sMode = OFF;
 	application.dMode = OFF;
 	application.swMode = OFF;
+	application.delMode = OFF;
 	application.isProcessing = false;
-	application.finishedEdit = true;
+}
+
+void initList() {
+	list.head = NULL;
+	list.tail = NULL;
 	application.client = NULL;
+	initOptions();
 	loadContent();
 }
 
@@ -503,21 +584,36 @@ void record() {
 	fclose(d);
 }
 
+void save() {
+	char choice;
+	while(true) {
+		std::cout << "Save changes?[S/N]? ";
+		std::cin >> choice;
+		choice = tolower(choice);
+		if(choice != 'n' && choice != 's') {
+			std::cout << "[!] Invalid" << std::endl;
+			continue;
+		}
+
+		break;
+	}
+
+	if(choice == 's') {
+		record();
+		return;
+	}
+}
+
 int main(int argc, char** argv) {
 	//std::cout << "argc: " << argc << "argv: "<< argv[1];
-	init();
+	initList();
 	//printWelcomeMessage();
 	std::string arg;
 	do {
 		readCommand(&arg);
-		handle(arg);
+		toggleModes(arg);
 	} while(arg != "exit");
 
-	char choice;
-	std::cout << "Save changes?[S/N]? ";
-	std::cin >> choice;
-	if(choice == 'S' || choice == 's')
-		record();
-
+	save();
 	return 0;
 }
